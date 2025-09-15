@@ -1,0 +1,11 @@
+pandas==2.2.2
+numpy==1.26.4
+requests==2.32.3
+beautifulsoup4==4.12.3
+requests-cache==1.2.0
+scikit-learn==1.5.1
+joblib==1.4.2
+apache-airflow-providers-postgres==5.10.1
+apache-airflow-providers-http==4.6.0
+SQLAlchemy==2.0.31
+psycopg2-binary==2.9.9

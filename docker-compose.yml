@@ -1,0 +1,99 @@
+version: "3.9"
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: wrestling
+    ports: ["5432:5432"]
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+
+  airflow-db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - airflowdb:/var/lib/postgresql/data
+
+  airflow-redis:
+    image: redis:7
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    ports: ["6379:6379"]
+
+  airflow-webserver:
+    image: apache/airflow:2.9.2
+    depends_on: [airflow-db, airflow-redis]
+    environment:
+      AIRFLOW__CORE__EXECUTOR: CeleryExecutor
+      AIRFLOW__CELERY__BROKER_URL: redis://airflow-redis:6379/0
+      AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@airflow-db:5432/airflow
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-db:5432/airflow
+      AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+      AIRFLOW__CORE__DEFAULT_TIMEZONE: "Europe/Paris"
+      AIRFLOW__WEBSERVER__INSTANCE_NAME: "Wrestling Airflow"
+      _PIP_ADDITIONAL_REQUIREMENTS: "-r /opt/airflow/requirements.txt"
+      AIRFLOW_UID: "50000"
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./airflow/plugins:/opt/airflow/plugins
+      - ./airflow/requirements.txt:/opt/airflow/requirements.txt
+      - ./data:/opt/airflow/data
+      - ./models:/opt/airflow/models
+    ports: ["8081:8080"]
+    command: webserver
+
+  airflow-scheduler:
+    image: apache/airflow:2.9.2
+    depends_on: [airflow-db, airflow-redis]
+    environment:
+      AIRFLOW__CORE__EXECUTOR: CeleryExecutor
+      AIRFLOW__CELERY__BROKER_URL: redis://airflow-redis:6379/0
+      AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@airflow-db:5432/airflow
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-db:5432/airflow
+      AIRFLOW__CORE__DEFAULT_TIMEZONE: "Europe/Paris"
+      _PIP_ADDITIONAL_REQUIREMENTS: "-r /opt/airflow/requirements.txt"
+      AIRFLOW_UID: "50000"
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./airflow/plugins:/opt/airflow/plugins
+      - ./airflow/requirements.txt:/opt/airflow/requirements.txt
+      - ./data:/opt/airflow/data
+      - ./models:/opt/airflow/models
+    command: scheduler
+
+  airflow-worker:
+    image: apache/airflow:2.9.2
+    depends_on: [airflow-db, airflow-redis]
+    environment:
+      AIRFLOW__CORE__EXECUTOR: CeleryExecutor
+      AIRFLOW__CELERY__BROKER_URL: redis://airflow-redis:6379/0
+      AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@airflow-db:5432/airflow
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-db:5432/airflow
+      AIRFLOW__CORE__DEFAULT_TIMEZONE: "Europe/Paris"
+      _PIP_ADDITIONAL_REQUIREMENTS: "-r /opt/airflow/requirements.txt"
+      AIRFLOW_UID: "50000"
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./airflow/plugins:/opt/airflow/plugins
+      - ./airflow/requirements.txt:/opt/airflow/requirements.txt
+      - ./data:/opt/airflow/data
+      - ./models:/opt/airflow/models
+    command: celery worker
+
+  web:
+    build: ./app
+    environment:
+      DATABASE_URL: postgresql+psycopg2://postgres:postgres@db:5432/wrestling
+      MODEL_PATH: /models/model.joblib
+    depends_on: [db]
+    volumes:
+      - ./models:/models
+    ports: ["8080:8080"]
+
+volumes:
+  dbdata:
+  airflowdb:
